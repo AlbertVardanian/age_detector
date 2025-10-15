@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Определитель Возраста</title>
+    <style>
+        body { font-family: Arial; text-align: center; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .ai-badge { background: #4CAF50; color: white; padding: 10px; border-radius: 5px; font-weight: bold; margin: 10px 0; }
+        .upload-box { border: 3px dashed #4CAF50; padding: 40px; margin: 20px 0; border-radius: 10px; background: #f9fff9; cursor: pointer; }
+        button { background: #4CAF50; color: white; border: none; padding: 15px 30px; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 10px; }
+        button:hover { background: #45a049; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        #result { margin: 20px; padding: 25px; border-radius: 10px; display: none; }
+        .success { background: #e8f5e8; border: 2px solid #4CAF50; }
+        .error { background: #ffebee; border: 2px solid #f44336; }
+        #preview img { max-width: 250px; border-radius: 10px; margin: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .analysis-details { background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 15px; font-size: 0.9em; }
+        .loading { color: #4CAF50; margin: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 AI Определитель Возраста</h1>
+        <div class="ai-badge">НЕЙРОСЕТЬ DEEPFACE + АНАЛИЗ ЧЕРТ ЛИЦА</div>
+        <p>Точное определение возраста по фото</p>
+        
+        <div class="upload-box" onclick="document.getElementById('photoInput').click()">
+            <h3>📁 Выберите фото для анализа</h3>
+            <p>Нажмите или перетащите файл (до 20MB)</p>
+            <input type="file" id="photoInput" accept="image/*" style="display: none;">
+        </div>
+        
+        <div id="preview"></div>
+        
+        <button onclick="analyzeWithAI()" id="analyzeBtn">🧠 Определить возраст</button>
+        
+        <div id="loading" class="loading" style="display: none;">
+            ⏳ Нейросеть анализирует изображение...
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let currentFile = null;
+
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                currentFile = e.target.files[0];
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('preview').innerHTML = 
+                        `<img src="${e.target.result}" alt="Preview">
+                         <p>${currentFile.name}</p>`;
+                };
+                reader.readAsDataURL(currentFile);
+                
+                document.getElementById('result').style.display = 'none';
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        });
+
+        function analyzeWithAI() {
+            if (!currentFile) {
+                alert('Пожалуйста, выберите фото!');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('photo', currentFile);
+
+            const resultDiv = document.getElementById('result');
+            const loadingDiv = document.getElementById('loading');
+            const btn = document.getElementById('analyzeBtn');
+
+            loadingDiv.style.display = 'block';
+            resultDiv.style.display = 'none';
+            btn.disabled = true;
+
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingDiv.style.display = 'none';
+                btn.disabled = false;
+
+                if (data.success) {
+                    let emoji = "👶";
+                    if (data.age > 3) emoji = "🧒";
+                    if (data.age > 7) emoji = "👦";
+                    if (data.age > 13) emoji = "🎓";
+                    if (data.age > 18) emoji = "💼";
+                    if (data.age > 30) emoji = "🔥";
+                    
+                    resultDiv.innerHTML = 
+                        `<div class="success">
+                            <h2>${emoji} ${data.age} лет</h2>
+                            <h3>${data.category}</h3>
+                            <p>${data.message}</p>
+                            <div class="analysis-details">
+                                <strong>Детали анализа:</strong><br>
+                                ${data.analysis}<br>
+                                Уверенность: ${data.confidence}
+                            </div>
+                        </div>`;
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+                    resultDiv.className = 'error';
+                }
+                resultDiv.style.display = 'block';
+            })
+            .catch(error => {
+                loadingDiv.style.display = 'none';
+                btn.disabled = false;
+                resultDiv.innerHTML = '<div class="error">❌ Ошибка соединения</div>';
+                resultDiv.className = 'error';
+                resultDiv.style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>
